@@ -1,7 +1,7 @@
 // Lesson: two repeating patterns at the same time (Math Kangaroo 2024, Ecolier, Q19).
 (function () {
-    const { strip, lamps, cardTag, shirtTag, at } = window.Draw;
-    const { add, choice, pencil, numbers, callout, feedback, praise } = window.UI;
+    const { strip, lamps, cardTag, shirtTag, shirtIcon, at, CARD_COLOR, EMOJI } = window.Draw;
+    const { add, choice, guess, guessResult, numbers, callout, feedback, praise } = window.UI;
 
     const SHIRTS = ['white', 'striped'];
     const CARDS = ['circle', 'star', 'triangle'];
@@ -41,35 +41,113 @@
         });
     }
 
+    // A table to fill in by clicking: each click changes the box to the next option.
+    function fillTable(container, opts) {
+        const { shirts, cards, n, given } = opts;
+        const shirtOpts = [...new Set(shirts)], cardOpts = [...new Set(cards)];
+        const wrap = add(container, `<div class="fill-wrap">
+            <div class="fill-table" style="grid-template-columns: 90px repeat(${n}, minmax(34px, 1fr))"></div>
+            <div class="btn-row"><button type="button" class="btn-random f-check">Check my table</button></div>
+            <div class="feedback"></div></div>`);
+        const grid = wrap.querySelector('.fill-table');
+        const fb = wrap.querySelector('.feedback');
+        const showShirt = k => k ? shirtIcon(k) : '<span class="q">?</span>';
+        const showCard = k => k ? `<span class="card-big" style="color:${CARD_COLOR[k]}">${EMOJI[k]}</span>` : '<span class="q">?</span>';
+        const cells = [];
+        add(grid, `<div class="fh">child</div>`);
+        for (let i = 1; i <= n; i++) add(grid, `<div class="fh">${i}</div>`);
+        [['T-shirt', shirts, shirtOpts, showShirt], ['card', cards, cardOpts, showCard]].forEach(([label, list, options, show]) => {
+            add(grid, `<div class="fh">${label}</div>`);
+            for (let i = 1; i <= n; i++) {
+                const want = at(list, i);
+                const fixed = i <= given;
+                const c = add(grid, `<button type="button" class="fc${fixed ? ' fixed' : ''}">${show(fixed ? want : null)}</button>`);
+                const cell = { el: c, want, val: fixed ? want : null, show, options };
+                cells.push(cell);
+                if (!fixed) c.addEventListener('click', () => {
+                    const k = options.indexOf(cell.val);
+                    cell.val = options[(k + 1) % options.length];
+                    c.innerHTML = show(cell.val);
+                    c.classList.remove('wrong');
+                });
+            }
+        });
+        let tries = 0;
+        wrap.querySelector('.f-check').addEventListener('click', e => {
+            const empty = cells.filter(c => c.val === null).length;
+            if (empty) {
+                feedback(fb, 'bad', `${empty} box${empty > 1 ? 'es are' : ' is'} still empty. Click each <b>?</b> until it shows the right thing.`);
+                return;
+            }
+            const wrong = cells.filter(c => c.val !== c.want);
+            wrong.forEach(c => c.el.classList.add('wrong'));
+            if (!wrong.length) {
+                e.target.remove();
+                const extra = wrap.querySelector('.f-show'); if (extra) extra.remove();
+                cells.forEach(c => c.el.disabled = true);
+                feedback(fb, 'good', `<b>${praise()}</b> ${opts.right || ''}`);
+                opts.onRight && opts.onRight();
+                return;
+            }
+            tries++;
+            feedback(fb, 'bad', `${wrong.length} box${wrong.length > 1 ? 'es are' : ' is'} not right yet (marked). Remember: T-shirts repeat every ${shirtOpts.length}, cards every ${cardOpts.length}.`);
+            if (tries === 2) {
+                const s = add(wrap.querySelector('.btn-row'), `<button type="button" class="btn-random f-show">Show me the answer</button>`);
+                s.addEventListener('click', () => {
+                    cells.forEach(c => { c.val = c.want; c.el.innerHTML = c.show(c.want); c.el.classList.remove('wrong'); });
+                    wrap.querySelector('.f-check').click();
+                });
+            }
+        });
+    }
+
+    // Children 1..n as small boxes in blocks, with the wanted ones starred.
+    function blocksPicture(total, block, isWanted) {
+        let html = '<div class="blocks">';
+        for (let b = 0; b * block < total; b++) {
+            const from = b * block + 1, to = Math.min(total, from + block - 1);
+            const stars = [];
+            for (let i = from; i <= to; i++) if (isWanted(i)) stars.push(i);
+            html += `<div class="block-box${to - from + 1 < block ? ' partial' : ''}"><div class="block-range">${from}–${to}</div><div class="block-star">${stars.length ? '★ ' + stars.join(', ') : '—'}</div></div>`;
+        }
+        return html + '</div>';
+    }
+
     const steps = [
         {
             title: 'The puzzle',
             render(body, ctx) {
                 add(body, `<p class="big">60 children stand in a row. Each child wears a T-shirt and holds a card.</p>`);
-                add(body, `<p>The T-shirts go: ${shirtTag('white')}, ${shirtTag('striped')}, ${shirtTag('white')}, ${shirtTag('striped')}, ...</p>`);
-                add(body, `<p>The cards go: ${cardTag('circle')}, ${cardTag('star')}, ${cardTag('triangle')}, ${cardTag('circle')}, ${cardTag('star')}, ${cardTag('triangle')}, ...</p>`);
+                add(body, `<p>The T-shirts go: ${shirtTag('white')}, ${shirtTag('striped')}, ${shirtTag('white')}, ${shirtTag('striped')}, ...<br>
+                    The cards go: ${cardTag('circle')}, ${cardTag('star')}, ${cardTag('triangle')}, ${cardTag('circle')}, ${cardTag('star')}, ${cardTag('triangle')}, ...</p>`);
                 body.appendChild(strip({ shirts: SHIRTS, cards: CARDS, to: 8, more: '... all the way to child 60' }));
                 callout(body, 'question', 'The question',
                     `How many children have a <b>white</b> T-shirt <b>and</b> a ${cardTag('triangle')} card?`);
-                pencil(body, {
-                    task: `Don't count all 60! Just write down your <b>guess</b> on paper. At the end we will see how close you were.`,
-                    button: 'I wrote my guess',
-                    reveal(r) { r.innerHTML = `<p class="ok-note">Keep that paper. Let's find out! Press <b>Next</b>.</p>`; ctx.done(); }
-                });
+                guess(body, { id: 'two-patterns', options: ['6', '10', '20', '30', '60'], onPicked: ctx.done });
+            }
+        },
+        {
+            title: 'Too many to count',
+            render(body, ctx) {
+                add(body, `<p class="big">Here are <b>all 60</b> children.</p>`);
+                body.appendChild(strip({ shirts: SHIRTS, cards: CARDS, to: 60, size: 30 }));
+                add(body, `<p>Checking them one by one takes a long time, and it is very easy to skip one or count one twice.</p>`);
+                callout(body, 'idea', 'A better way', 'Mathematicians look for a <b>pattern</b> first. Then they only need to check a few children, not 60. Let\'s learn how!');
+                ctx.done();
             }
         },
         {
             title: 'Look only at the T-shirts',
             render(body, ctx) {
                 add(body, `<p class="big">Two things change at the same time. That's hard! So first, let's look at <b>only one</b> thing: the T-shirts.</p>`);
-                body.appendChild(strip({ shirts: SHIRTS, cards: CARDS, hide: 'card', to: 8 }));
+                body.appendChild(strip({ shirts: SHIRTS, cards: CARDS, hide: 'card', to: 8, block: 2 }));
                 add(body, `<p>${shirtTag('white')}, ${shirtTag('striped')}, then it starts again. The T-shirts repeat <b>every 2 children</b>.</p>`);
                 choice(body, {
                     question: 'What T-shirt does child number <b>9</b> wear?',
                     options: [shirtTag('white'), shirtTag('striped')],
                     answer: 0,
                     right: 'White T-shirts are on 1, 3, 5, 7, 9, ... the <b>odd</b> numbers!',
-                    wrong: () => 'Count on: 7 is white, 8 is striped, 9 is ...?',
+                    wrong: () => 'Count on from the picture: 7 is white, 8 is striped, 9 is ...?',
                     onRight() {
                         choice(body, {
                             question: 'And child number <b>20</b>?',
@@ -109,32 +187,16 @@
             }
         },
         {
-            title: 'Make a table on paper',
+            title: 'Put both in a table',
             render(body, ctx) {
-                add(body, `<p class="big">Now put both patterns together. The best tool is a <b>table</b>.</p>`);
-                pencil(body, {
-                    task: `Draw this table on your paper and fill it in for children 1 to 12.
-                        <div class="paper-table">
-                            <div><b>child</b></div>${Array.from({ length: 12 }, (_, k) => `<div>${k + 1}</div>`).join('')}
-                            <div><b>T-shirt</b></div>${'<div></div>'.repeat(12)}
-                            <div><b>card</b></div>${'<div></div>'.repeat(12)}
-                        </div>
-                        <p class="small">Tip: write <b>W</b> for white and <b>S</b> for striped. Draw ● ★ ▲ for the cards.</p>`,
-                    reveal(r) {
-                        add(r, `<p>Let's check, one child at a time:</p>`);
-                        const holder = add(r, `<div></div>`);
-                        let n = 1;
-                        const draw = () => {
-                            holder.innerHTML = '';
-                            holder.appendChild(strip({ shirts: SHIRTS, cards: CARDS, to: n }));
-                        };
-                        draw();
-                        const row = add(r, `<div class="btn-row"></div>`);
-                        const one = add(row, `<button type="button" class="btn-random">Next child</button>`);
-                        const all = add(row, `<button type="button" class="btn-random">Show all 12</button>`);
-                        const finish = () => { row.remove(); add(r, `<p class="ok-note">Is your table the same? Fix it if not.</p>`); ctx.done(); };
-                        one.addEventListener('click', () => { n++; draw(); if (n >= 12) finish(); });
-                        all.addEventListener('click', () => { n = 12; draw(); finish(); });
+                add(body, `<p class="big">Now both together. A <b>table</b> keeps everything tidy: one column for each child.</p>`);
+                add(body, `<p>Children 1, 2 and 3 are done. Fill in the rest: <b>click a box</b> to change it. Use what you just learned: T-shirts repeat every 2, cards every 3.</p>`);
+                fillTable(body, {
+                    shirts: SHIRTS, cards: CARDS, n: 12, given: 3,
+                    right: 'Your table is perfect. Here are the children it describes:',
+                    onRight() {
+                        body.appendChild(strip({ shirts: SHIRTS, cards: CARDS, to: 12, size: 50 }));
+                        ctx.done();
                     }
                 });
             }
@@ -156,9 +218,8 @@
                         } else if (sameAs1(i)) {
                             solved = true;
                             el.classList.add('picked');
-                            feedback(fb, 'good', `<b>${praise()}</b> Child 7 looks exactly like child 1. So everything repeats after <b>6 children</b>. We call these 6 children a <b>block</b>.`);
+                            feedback(fb, 'good', `<b>${praise()}</b> Child 7 looks exactly like child 1. And child 8 looks like child 2, child 9 like child 3, ... Everything repeats after <b>6 children</b>. We call these 6 children a <b>block</b>.`);
                             s.replaceWith(strip({ shirts: SHIRTS, cards: CARDS, to: 12, block: 6, marked: [1, 7] }));
-                            showWhy();
                             ctx.done();
                         } else if (at(SHIRTS, i) === 'white') {
                             el.classList.add('nope');
@@ -174,41 +235,72 @@
                 });
                 body.appendChild(s);
                 body.appendChild(fb);
-                function showWhy() {
-                    callout(body, 'idea', 'Why 6?',
-                        `The T-shirts start again at <b>1, 3, 5, <span class="hl">7</span>, 9, ...</b> (every 2)<br>
-                         The cards start again at <b>1, 4, <span class="hl">7</span>, 10, ...</b> (every 3)<br>
-                         The first number in <b>both</b> lists (after 1) is <span class="hl">7</span>. So the block is 6 long.`);
-                }
+            }
+        },
+        {
+            title: 'Why after 6 children?',
+            render(body, ctx) {
+                add(body, `<p class="big">Let's see <b>why</b> it is 6. Each row below circles the children where that pattern <b>starts again</b>.</p>`);
+                const rows = add(body, `<div class="restart"></div>`);
+                const line = (label, every) => {
+                    let h = `<div class="restart-row"><div class="restart-label">${label}</div>`;
+                    for (let i = 1; i <= 13; i++) h += `<button type="button" class="rn${(i - 1) % every === 0 ? ' on' : ''}" data-n="${i}">${i}</button>`;
+                    return h + '</div>';
+                };
+                rows.innerHTML = line(`${shirtTag('white')} T-shirt again (every 2)`, 2) + line(`${cardTag('circle')} card again (every 3)`, 3);
+                add(body, `<p>Click the first number <b>after 1</b> that is circled in <b>both</b> rows.</p>`);
+                const fb = add(body, `<div class="feedback"></div>`);
+                let solved = false;
+                rows.querySelectorAll('.rn').forEach(b => b.addEventListener('click', () => {
+                    if (solved) return;
+                    const n = +b.dataset.n;
+                    const sh = (n - 1) % 2 === 0, cd = (n - 1) % 3 === 0;
+                    if (n === 7) {
+                        solved = true;
+                        rows.querySelectorAll('.rn[data-n="7"]').forEach(x => x.classList.add('both'));
+                        feedback(fb, 'good', `<b>${praise()}</b> At child 7 the T-shirts <b>and</b> the cards start again together. 7 − 1 = <b>6</b>, so the block is 6 children long.`);
+                        callout(body, 'idea', 'The rule', 'Write down when each pattern starts again. The first number in <b>both</b> lists tells you where the block ends.');
+                        ctx.done();
+                    } else if (n === 1) feedback(fb, 'bad', 'Child 1 is where we start. Find the next one!');
+                    else if (n === 13) feedback(fb, 'bad', '13 is in both rows too, but is it the <b>first</b> one after 1?');
+                    else if (sh && !cd) feedback(fb, 'bad', `At ${n} only the T-shirts start again. Is ${n} circled in the card row?`);
+                    else if (cd && !sh) feedback(fb, 'bad', `At ${n} only the cards start again. Is ${n} circled in the T-shirt row?`);
+                    else feedback(fb, 'bad', `${n} is not circled at all. Look for a number circled in both rows.`);
+                }));
             }
         },
         {
             title: 'Count inside ONE block',
             render(body, ctx) {
-                add(body, `<p class="big">We don't need to look at all 60 children. Just one block of 6!</p>`);
+                add(body, `<p class="big">We don't need to look at all 60 children. Just <b>one block</b> of 6!</p>`);
                 add(body, `<p>Click every child in this block who has a <b>white</b> T-shirt <b>and</b> a ${cardTag('triangle')} card. Then press "Check".</p>`);
                 pickMany(body, {
                     strip: { shirts: SHIRTS, cards: CARDS, to: 6 },
                     answer: [3],
-                    right: 'Only child 3. So in every block there is exactly <b>1</b> such child.',
+                    right: 'Only child 3. So in one block there is exactly <b>1</b> such child.',
                     onRight: ctx.done
                 });
             }
         },
         {
-            title: 'How many blocks?',
+            title: 'Every block is the same',
             render(body, ctx) {
-                add(body, `<p class="big">Every block has 6 children and 1 child we want. Now we just need to know: how many blocks fit into 60 children?</p>`);
-                body.appendChild(strip({ shirts: SHIRTS, cards: CARDS, to: 18, block: 6, marked: [3, 9, 15], more: '...', size: 44 }));
-                pencil(body, { task: 'Work it out on paper first, then type your numbers in the boxes.' });
-                numbers(body, {
-                    template: '60 children ÷ 6 per block = [10] blocks',
-                    right: '10 blocks!',
-                    hint: 'How many 6s make 60? Use the 6 times table.',
+                add(body, `<p class="big">Because everything repeats, <b>every</b> block looks exactly like the first one.</p>`);
+                body.appendChild(strip({ shirts: SHIRTS, cards: CARDS, to: 18, block: 6, marked: [3], size: 44 }));
+                add(body, `<p>In block 1 (children 1–6) the child we want is number <b>3</b>.</p>`);
+                choice(body, {
+                    question: 'Which child is it in block 2 (children 7–12)?',
+                    options: ['child 7', 'child 8', 'child 9', 'child 10'],
+                    answer: 2,
+                    right: 'Child 9: the 3rd child of block 2. That is 3 + 6.',
+                    wrong: () => 'Find the 3rd child of block 2. Or: 3 + 6 = ?',
                     onRight() {
-                        numbers(body, {
-                            template: '10 blocks × 1 in each block = [10] children',
-                            right: `The answer is <b>10</b>. Look at your guess from the beginning. Were you close?`,
+                        choice(body, {
+                            question: 'And in block 3 (children 13–18)?',
+                            options: ['child 14', 'child 15', 'child 16', 'child 18'],
+                            answer: 1,
+                            right: 'Child 15 = 9 + 6. Always <b>6 more</b>: 3, 9, 15, 21, ... One in every block.',
+                            wrong: () => '9 + 6 = ?',
                             onRight: ctx.done
                         });
                     }
@@ -216,15 +308,45 @@
             }
         },
         {
+            title: 'How many blocks?',
+            render(body, ctx) {
+                add(body, `<p class="big">So now the only question is: how many blocks of 6 fit into 60 children?</p>`);
+                numbers(body, {
+                    template: '60 children ÷ 6 per block = [10] blocks',
+                    right: 'Here they are, all 10 blocks, with the child we want in each:',
+                    hint: 'How many 6s make 60? Use the 6 times table: 6, 12, 18, ...',
+                    onRight() {
+                        add(body, blocksPicture(60, 6, isTarget));
+                        numbers(body, {
+                            template: '10 blocks × 1 in each block = [10] children',
+                            right: 'The answer is <b>10</b>.',
+                            onRight: ctx.done
+                        });
+                    }
+                });
+            }
+        },
+        {
+            title: 'Check it with all 60',
+            render(body, ctx) {
+                add(body, `<p class="big">Let's check our answer. Here are all 60 children again. The ones we want are marked.</p>`);
+                body.appendChild(strip({ shirts: SHIRTS, cards: CARDS, to: 60, size: 30, block: 6, marked: Array.from({ length: 10 }, (_, k) => 3 + 6 * k) }));
+                add(body, `<p>One in every block: 3, 9, 15, 21, 27, 33, 39, 45, 51, 57. That's <b>10</b>. ✔</p>`);
+                guessResult(body, 'two-patterns', '10');
+                ctx.done();
+            }
+        },
+        {
             title: 'Another way to see it',
             render(body, ctx) {
-                add(body, `<p class="big">Let's colour the numbers 1 to 60. Press both buttons. Numbers in <b>both</b> lists turn dark.</p>`);
+                add(body, `<p class="big">Here are the numbers 1 to 60. Press both buttons. Numbers in <b>both</b> lists turn dark.</p>`);
                 const ctr = add(body, `<div class="btn-row"></div>`);
                 const bWhite = add(ctr, `<button type="button" class="toggle"><span class="swatch" style="background:#dbe7f3"></span>white T-shirts (odd numbers)</button>`);
                 const bTri = add(ctr, `<button type="button" class="toggle"><span class="swatch" style="background:#dcefdc"></span>triangle cards (3 times table)</button>`);
                 const grid = add(body, `<div class="num-grid"></div>`);
                 for (let i = 1; i <= 60; i++) add(grid, `<div class="cell" data-n="${i}"><span>${i}</span></div>`);
                 const on = { w: false, t: false };
+                let shown = false;
                 const paint = () => {
                     grid.querySelectorAll('.cell').forEach(c => {
                         const n = +c.dataset.n;
@@ -233,18 +355,10 @@
                     });
                     if (on.w && on.t && !shown) {
                         shown = true;
-                        callout(body, 'idea', 'Look at the marked numbers',
-                            `The numbers that are in <b>both</b> lists: 3, 9, 15, 21, ... Every time <b>6 more</b>. That's our block again!`);
-                        pencil(body, {
-                            task: 'On paper, write 3, 9, 15, ... and keep adding 6 until you go past 60. How many numbers did you write?',
-                            reveal(r) {
-                                r.innerHTML = `<p class="ok-note">3, 9, 15, 21, 27, 33, 39, 45, 51, 57 — that's <b>10</b> numbers. Same answer!</p>`;
-                                ctx.done();
-                            }
-                        });
+                        callout(body, 'idea', 'Look at the dark numbers', `3, 9, 15, 21, ... Every time <b>6 more</b>. That's our block again!`);
+                        numbers(body, { template: 'How many dark numbers are there? [10]', right: 'Same answer, a different way.', onRight: ctx.done });
                     }
                 };
-                let shown = false;
                 bWhite.addEventListener('click', () => { on.w = !on.w; bWhite.classList.toggle('on'); paint(); });
                 bTri.addEventListener('click', () => { on.t = !on.t; bTri.classList.toggle('on'); paint(); });
             }
@@ -253,7 +367,7 @@
             title: 'Watch out: the block can be shorter',
             render(body, ctx) {
                 const sh = ['white', 'striped'], cd = ['circle', 'star', 'triangle', 'square'];
-                add(body, `<p class="big">Now the T-shirts repeat every <b>2</b> and the cards repeat every <b>4</b>.</p>`);
+                add(body, `<p class="big">New row: the T-shirts repeat every <b>2</b> and the cards repeat every <b>4</b>.</p>`);
                 add(body, `<p>Many people think: "2 × 4 = 8, so the block is 8 long." Let's test it! Click the next child who looks exactly like child 1.</p>`);
                 const fb = document.createElement('div');
                 fb.className = 'feedback';
@@ -265,7 +379,7 @@
                         if (i === 5) {
                             solved = true;
                             el.classList.add('picked');
-                            feedback(fb, 'good', `<b>${praise()}</b> Child 5 already looks like child 1. The block is only <b>4</b>, not 8!`);
+                            feedback(fb, 'good', `<b>${praise()}</b> Child 5 already looks like child 1. The block is only <b>4</b>, not 8! (T-shirts start again at 1, 3, <b>5</b>; cards at 1, <b>5</b>.)`);
                             s.replaceWith(strip({ shirts: sh, cards: cd, to: 12, block: 4, marked: [1, 5, 9] }));
                             askNever();
                         } else {
@@ -284,8 +398,7 @@
                         right: `Circles are on 1, 5, 9, 13, ... (all odd). Striped T-shirts are on even numbers. They <b>never</b> meet! So the answer to "how many?" would be <b>0</b>.`,
                         wrong: () => 'Look at the picture. Which children have a circle? What T-shirt do they wear?',
                         onRight() {
-                            callout(body, 'warn', 'Remember',
-                                'Don\'t just multiply the two lengths. <b>Write the children down</b> and look where both start again together. And sometimes a pair <b>never</b> happens!');
+                            callout(body, 'warn', 'Remember', 'Don\'t just multiply the two lengths. <b>Look</b> where both start again together. And sometimes a pair <b>never</b> happens!');
                             ctx.done();
                         }
                     });
@@ -295,8 +408,9 @@
         {
             title: 'Watch out: children left over',
             render(body, ctx) {
-                add(body, `<p class="big">Same row as before (block of 6), but now there are <b>64</b> children.</p>`);
-                pencil(body, { task: 'How many full blocks of 6 fit in 64? How many children are left over? Work it out on paper.' });
+                add(body, `<p class="big">Same row as before (block of 6), but now there are <b>64</b> children. 64 is not in the 6 times table!</p>`);
+                add(body, blocksPicture(64, 6, isTarget));
+                add(body, `<p>10 full blocks, and then a small piece that is not a full block.</p>`);
                 numbers(body, {
                     template: '64 = [10] blocks × 6 + [4] left over',
                     right: '10 full blocks give us 10 children. But we must check the 4 left-over children too!',
@@ -318,20 +432,14 @@
             render(body, ctx) {
                 add(body, `<p class="big">You learned a trick that works for <b>all</b> "two patterns" questions!</p>`);
                 add(body, `<ol class="recipe">
-                    <li class="r1"><b>Write it down.</b> Draw a table: child number, first pattern, second pattern.</li>
-                    <li class="r2"><b>Find the block.</b> Where do <b>both</b> start again at the same time?</li>
-                    <li class="r3"><b>Count in one block.</b> How many children do you want in one block?</li>
-                    <li class="r4"><b>Multiply.</b> Number of blocks × count in one block.</li>
-                    <li class="r5"><b>Check the leftovers!</b> Children after the last full block.</li>
+                    <li><b>One pattern at a time.</b> How often does each one repeat?</li>
+                    <li><b>Find the block.</b> Where do <b>both</b> start again at the same time?</li>
+                    <li><b>Count in one block.</b> How many children do you want in one block?</li>
+                    <li><b>Multiply.</b> Number of blocks × count in one block.</li>
+                    <li><b>Check the leftovers!</b> Children after the last full block.</li>
                 </ol>`);
-                pencil(body, {
-                    task: 'Copy these 5 steps into your notebook. Then press the button and go to <b>Practice</b>!',
-                    button: 'I copied it',
-                    reveal(r) {
-                        r.innerHTML = `<a class="btn btn-primary" href="#/lesson/two-patterns/practice">Start practice</a>`;
-                        ctx.done();
-                    }
-                });
+                add(body, `<a class="btn btn-primary align-start" href="#/lesson/two-patterns/practice">Start practice</a>`);
+                ctx.done();
             }
         }
     ];
@@ -488,14 +596,14 @@
         },
         steps,
         practice,
-        practiceIntro: 'Use the recipe: write it down, find the block, count, multiply, check leftovers.',
+        practiceIntro: 'Use the recipe: one pattern at a time, find the block, count, multiply, check leftovers.',
         figure(q, el) {
             if (q.show) el.appendChild(strip({ shirts: q.show.shirts, cards: q.show.cards, to: q.show.n, size: 54 }));
         },
         helper(q) {
-            if (q.lamps) return { label: 'I wrote the lists on paper — show me', draw: el => el.appendChild(lamps(q.lamps[0], q.lamps[1], q.lamps[2])) };
+            if (q.lamps) return { label: 'Show me the lamps', draw: el => el.appendChild(lamps(q.lamps[0], q.lamps[1], q.lamps[2])) };
             if (q.draw) return {
-                label: 'I drew it on paper — show me the picture',
+                label: 'Show me the picture',
                 draw: el => el.appendChild(strip({ shirts: q.draw.shirts, cards: q.draw.cards, to: q.draw.n, block: q.block, size: 54, more: '...' }))
             };
             return null;

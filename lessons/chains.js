@@ -1,6 +1,6 @@
 // Lesson: counting chains with a tree (Math Kangaroo 2024, Ecolier, Q14).
 (function () {
-    const { add, choice, pencil, numbers, callout, feedback, praise } = window.UI;
+    const { add, choice, guess, guessResult, reveal, numbers, callout, feedback, praise } = window.UI;
 
     // ---------- pieces ----------
     // A piece has a peg on its left and a hole on its right. Shapes: c = round, s = square, t = triangle.
@@ -83,10 +83,13 @@
         const wrap = add(container, `<div class="tree-wrap">
             <div class="tree-bar"><span class="tree-count">Finished ${r.chains}: <b>0</b></span>
             <button type="button" class="btn-random tree-all">Grow everything</button></div>
-            <div class="tree"></div></div>`);
+            <div class="tree"></div>
+            <div class="tree-msg"></div></div>`);
         const root = wrap.querySelector('.tree');
         let found = 0;
         const counter = wrap.querySelector('.tree-count b');
+        const msgEl = wrap.querySelector('.tree-msg');
+        const explain = html => { if (opts.explain) { msgEl.innerHTML = html; msgEl.classList.add('show'); } };
         const nameOf = n => set.parts.find(p => p.n === n).name || `${r.part} ${n}`;
 
         function node(parent, label, path, kind) {
@@ -112,10 +115,16 @@
                 box.classList.add('grown');
                 const parts = nextParts(set, p);
                 const end = canEnd(set, p);
+                const who = p.length ? `The <b>${nameOf(p[p.length - 1])}</b>` : `The <b>${r.start}</b>`;
+                const hole = SHAPE_NAME[holeOf(set, p)];
+                const used = p.length > 1 ? ` Already used on this branch: ${p.slice(0, -1).map(nameOf).join(', ')}.` : '';
+                const nexts = [...(end ? [r.end] : []), ...parts.map(pt => nameOf(pt.n))];
                 if (!parts.length && !end) {
                     add(n.querySelector('.tline'), `<span class="tnote bad">stuck — nothing fits</span>`);
+                    explain(`${who} has a <b>${hole}</b> hole.${used} No piece that is left has a ${hole} peg. <b>Stuck!</b> This branch is a dead end.`);
                     return;
                 }
+                explain(`${who} has a <b>${hole}</b> hole.${used} Pieces left with a ${hole} peg: <b>${nexts.join(', ')}</b>. So ${nexts.length === 1 ? 'there is 1 branch' : `there are ${nexts.length} branches`}.`);
                 if (end) node(kids, r.end, p, 'end');
                 parts.forEach(pt => node(kids, nameOf(pt.n), [...p, pt.n], 'part'));
             }
@@ -140,6 +149,11 @@
         wrap.querySelector('.tree-all').addEventListener('click', e => { growAll(); e.target.remove(); });
         if (opts.expandAll) { growAll(); wrap.querySelector('.tree-all').remove(); }
         return wrap;
+    }
+
+    // A finished chain drawn as joined pieces.
+    function chainPicture(set, path) {
+        return `<div class="joined plug-sm">${startSVG(set, { size: 84 })}${path.map(n => partSVG(set, set.parts.find(p => p.n === n), { size: 84 })).join('')}${endSVG(set, { size: 84 })}</div>`;
     }
 
     // ---------- the contest pieces ----------
@@ -290,52 +304,119 @@
         draw();
     }
 
+    const CHERRY = LUCAS.parts[1], GRAPE = LUCAS.parts[2], APPLE = LUCAS.parts[0];
+    const generic = (peg, hole) => pieceSVG('caterpillar', 'part', peg, hole, '', { size: 90 });
+
     const steps = [
+        {
+            title: 'Meet the pieces',
+            render(body, ctx) {
+                add(body, `<p class="big">A caterpillar is made of round pieces that click together.</p>`);
+                add(body, `<div class="anatomy">
+                    <div class="anat-label left">peg<br><small>the bump on the left</small></div>
+                    ${partSVG(LUCAS, CHERRY, { size: 220 })}
+                    <div class="anat-label right">hole<br><small>the dent on the right</small></div>
+                </div>`);
+                add(body, `<p>Every middle piece has a <b>peg</b> on its left side and a <b>hole</b> on its right side. The head has only a hole (it is the front). The tail has only a peg (it is the back).</p>`);
+                add(body, `<div class="pieces">
+                    <div class="piece-cell">${startSVG(LUCAS)}<span>head: only a hole</span></div>
+                    <div class="piece-cell">${endSVG(LUCAS)}<span>tail: only a peg</span></div></div>`);
+                choice(body, {
+                    question: 'Look at the big cherry piece. What shape is its <b>peg</b>?',
+                    options: ['round', 'square', 'triangle'],
+                    answer: 0,
+                    right: 'The bump on the left is round.',
+                    wrong: () => 'The peg is the bump on the LEFT side.',
+                    onRight() {
+                        choice(body, {
+                            question: 'And what shape is its <b>hole</b>?',
+                            options: ['round', 'square', 'triangle'],
+                            answer: 1,
+                            right: 'The dent on the right is square. Peg and hole can be different shapes!',
+                            wrong: () => 'The hole is the dent on the RIGHT side.',
+                            onRight: ctx.done
+                        });
+                    }
+                });
+            }
+        },
         {
             title: 'The puzzle',
             render(body, ctx) {
                 add(body, `<p class="big">Lucas has a head, a tail and three middle pieces: <b>apple (A)</b>, <b>cherry (C)</b> and <b>grape (G)</b>.</p>`);
                 body.appendChild(pieceRow(LUCAS));
-                add(body, `<p>A peg (the bump on the left) only fits into a hole (on the right) of the <b>same shape</b>. A caterpillar is the head, then some middle pieces, then the tail. Each piece can be used only once.</p>`);
+                add(body, `<ul class="rules">
+                    <li>A peg only fits into a hole of the <b>same shape</b>.</li>
+                    <li>A caterpillar is: the head, then one or more middle pieces, then the tail.</li>
+                    <li>Each piece can be used <b>only once</b>.</li></ul>`);
                 callout(body, 'question', 'The question', 'How many different caterpillars can Lucas build?');
-                pencil(body, {
-                    task: 'Write down your <b>guess</b> on paper.',
-                    button: 'I wrote my guess',
-                    reveal(r) { r.innerHTML = `<p class="ok-note">Keep that paper. Let's find out!</p>`; ctx.done(); }
-                });
+                guess(body, { id: 'chains', options: ['2', '3', '4', '5', '6'], onPicked: ctx.done });
             }
         },
         {
-            title: 'How pieces fit',
+            title: 'Same shape fits',
             render(body, ctx) {
-                add(body, `<p class="big">Look at the <b>right side</b> of a piece: that is its hole. The next piece needs a <b>peg of the same shape</b> on its left side.</p>`);
-                const ex = add(body, `<div class="fit-examples"></div>`);
-                const head = startSVG(LUCAS, { size: 90 });
-                add(ex, `<div class="fit-ex good"><div class="joined plug">${head}${partSVG(LUCAS, LUCAS.parts[1], { size: 90 })}</div><span>round hole + round peg: <b>fits</b></span></div>`);
-                add(ex, `<div class="fit-ex bad"><div class="joined">${head}${partSVG(LUCAS, LUCAS.parts[0], { size: 90 })}</div><span>round hole + square peg: <b>does not fit</b></span></div>`);
-                add(body, `<p>The head has a <b>round</b> hole. Click <b>every</b> piece that can go right after the head, then press Check.</p>`);
-                pickPieces(body, LUCAS, {
-                    answer: ['C', 'G'],
-                    right: 'Cherry and grape both have a round peg.',
-                    wrong: id => id === 'end' ? 'The tail has a square peg. And a caterpillar needs a middle piece!' : 'The apple has a <b>square</b> peg. The head\'s hole is round.',
+                add(body, `<p class="big">The peg of the next piece goes into the hole of the piece before. They must be the <b>same shape</b>.</p>`);
+                add(body, `<div class="fit-examples">
+                    <div class="fit-ex good"><div class="joined plug">${generic(null, 'c')}${generic('c', null)}</div><span>round into round: <b>fits</b></span></div>
+                    <div class="fit-ex good"><div class="joined plug">${generic(null, 's')}${generic('s', null)}</div><span>square into square: <b>fits</b></span></div>
+                    <div class="fit-ex good"><div class="joined plug">${generic(null, 't')}${generic('t', null)}</div><span>triangle into triangle: <b>fits</b></span></div>
+                    <div class="fit-ex bad"><div class="joined">${generic(null, 'c')}${generic('s', null)}</div><span>square peg, round hole: <b>no!</b></span></div>
+                </div>`);
+                add(body, `<p>Only the <b>hole</b> of the left piece and the <b>peg</b> of the right piece matter. The other sides don't.</p>`);
+                add(body, `<div class="fit-examples"><div class="fit-ex"><div class="joined">${partSVG(LUCAS, APPLE, { size: 90 })}${partSVG(LUCAS, CHERRY, { size: 90 })}</div><span>apple, then cherry?</span></div></div>`);
+                choice(body, {
+                    question: 'Does the cherry fit right after the apple?',
+                    options: ['yes, it fits', 'no, it does not fit'],
+                    answer: 1,
+                    right: 'The apple\'s hole is <b>square</b>, but the cherry\'s peg is <b>round</b>.',
+                    wrong: () => 'Look only at the apple\'s hole (right side) and the cherry\'s peg (left side). Same shape?',
                     onRight: ctx.done
                 });
             }
         },
         {
-            title: 'Make a "what comes next" list',
+            title: 'What can come after the head?',
             render(body, ctx) {
-                add(body, `<p class="big">Before building anything, make a list: for <b>each piece</b>, what can come right after it?</p>`);
+                add(body, `<p class="big">The head has a <b>round</b> hole. So the next piece needs a <b>round peg</b>.</p>`);
+                add(body, `<div class="pieces"><div class="piece-cell">${startSVG(LUCAS, { size: 110 })}<span>head</span></div></div>`);
+                add(body, `<p>Click <b>every</b> piece that can go right after the head, then press Check.</p>`);
+                pickPieces(body, LUCAS, {
+                    answer: ['C', 'G'],
+                    right: 'Cherry and grape both have a round peg. So there are <b>2</b> ways to start.',
+                    wrong: id => id === 'end' ? 'The tail has a square peg. And a caterpillar needs a middle piece!' : 'The apple has a <b>square</b> peg. The head\'s hole is round.',
+                    onRight() {
+                        add(body, `<div class="fit-examples">
+                            <div class="fit-ex good"><div class="joined plug">${startSVG(LUCAS, { size: 90 })}${partSVG(LUCAS, CHERRY, { size: 90 })}</div><span>head + cherry</span></div>
+                            <div class="fit-ex good"><div class="joined plug">${startSVG(LUCAS, { size: 90 })}${partSVG(LUCAS, GRAPE, { size: 90 })}</div><span>head + grape</span></div></div>`);
+                        ctx.done();
+                    }
+                });
+            }
+        },
+        {
+            title: 'What can come after each piece?',
+            render(body, ctx) {
+                add(body, `<p class="big">Let's do the same for <b>every</b> piece and keep it in a list. Then we never have to look at the pictures again!</p>`);
                 body.appendChild(pieceRow(LUCAS));
-                pencil(body, {
-                    task: `Draw this table on paper and fill in the last column:
-                        <table class="fit-table paper"><tr><th>Piece</th><th>Its hole</th><th>What can come next</th></tr>
-                        <tr><td>head</td><td></td><td></td></tr><tr><td>apple</td><td></td><td></td></tr>
-                        <tr><td>cherry</td><td></td><td></td></tr><tr><td>grape</td><td></td><td></td></tr></table>
-                        <p class="small">Remember: a piece can't come after itself, because each piece is used only once.</p>`,
-                    reveal(r) {
-                        add(r, `<p>Now click your answers into the table to check them:</p>`);
-                        nextTable(r, LUCAS, ctx.done);
+                add(body, `<p>For each row: look at the piece's hole, then click every piece with a peg of that shape.</p>`);
+                nextTable(body, LUCAS, ctx.done);
+            }
+        },
+        {
+            title: 'Each piece only once',
+            render(body, ctx) {
+                add(body, `<p class="big">Look at the grape in your list. Its hole is <b>round</b>, and its own peg is round too!</p>`);
+                add(body, `<div class="fit-examples"><div class="fit-ex bad"><div class="joined plug">${partSVG(LUCAS, GRAPE, { size: 90 })}${partSVG(LUCAS, GRAPE, { size: 90 })}</div><span>grape + grape?</span></div></div>`);
+                choice(body, {
+                    question: 'Can a grape come right after the grape?',
+                    options: ['Yes, the shapes fit', 'No, there is only one grape'],
+                    answer: 1,
+                    right: 'Lucas has only <b>one</b> grape. Once a piece is in the caterpillar, it is used up.',
+                    wrong: () => 'The shapes fit, but how many grapes does Lucas have?',
+                    onRight() {
+                        callout(body, 'warn', 'Remember', 'When you build a caterpillar, <b>cross out</b> in your head every piece that is already in it. It can\'t be used again.');
+                        ctx.done();
                     }
                 });
             }
@@ -348,46 +429,64 @@
                 builder(body, LUCAS, n => {
                     if (n >= 2 && !told) {
                         told = true;
-                        callout(body, 'idea', 'But wait…', `You found ${n}. Are there more? How can you be <b>sure</b> you didn't miss one? Trying pieces in any order is how people miss one or count one twice. The next step shows a way to be sure.`);
+                        callout(body, 'idea', 'But wait…', `You found ${n}. Are there more? How can you be <b>sure</b> you didn't miss one? Keep trying if you like, then press Next.`);
                         ctx.done();
                     }
                 });
             }
         },
         {
-            title: 'Grow a tree',
+            title: 'A tree: a map of every choice',
             render(body, ctx) {
-                add(body, `<p class="big">To be sure, we grow a <b>tree</b>. Start at the head. Write every piece that can come next as a new branch. Then do the same for each branch.</p>`);
-                pencil(body, {
-                    task: `Draw the tree on paper. Use your "what comes next" list!
-                        <p class="small">Start: write <b>head</b> on the left. Draw a line to each piece that can come next. Keep going until every branch ends with the <b>tail</b> or gets stuck.</p>`,
-                    button: 'I drew my tree — let me grow it here',
-                    reveal(r) {
-                        add(r, `<p>Click a box to grow its branches. Does it match your paper?</p>`);
-                        let doneOnce = false;
-                        tree(r, LUCAS, {
-                            onCount(n) {
-                                if (n === 4 && !doneOnce) {
-                                    doneOnce = true;
-                                    add(r, `<p class="ok-note">Every branch ends with a tail. The tree is finished.</p>`);
-                                    ctx.done();
-                                }
-                            }
-                        });
+                add(body, `<p class="big">When you just try pieces, it's easy to miss one or count one twice. A <b>tree</b> makes sure we try <b>every</b> choice exactly once.</p>`);
+                add(body, `<div class="mini-tree">
+                    <div class="mt-node">head</div>
+                    <div class="mt-kids"><div class="mt-node">cherry</div><div class="mt-node">grape</div></div>
+                    <div class="mt-note">← 2 branches, because 2 pieces fit after the head</div>
+                </div>`);
+                add(body, `<p>We start with the head. Every piece that can come next gets its <b>own branch</b>. Then we do the same at the end of every branch, again and again.</p>`);
+                choice(body, {
+                    question: 'When does a branch stop growing?',
+                    options: ['When it reaches the tail, or nothing fits', 'After 3 pieces', 'When we get bored'],
+                    answer: 0,
+                    right: 'A branch that reaches the tail is a finished caterpillar. A branch where nothing fits is a dead end.',
+                    wrong: () => 'Caterpillars can have different lengths. What makes a caterpillar finished?',
+                    onRight: ctx.done
+                });
+            }
+        },
+        {
+            title: 'Grow the tree',
+            render(body, ctx) {
+                add(body, `<p class="big">Now you grow it! Click a box with a blue glow to grow its branches. Read the explanation under the tree each time.</p>`);
+                let doneOnce = false;
+                tree(body, LUCAS, {
+                    explain: true,
+                    onCount(n) {
+                        if (n === 4 && !doneOnce) {
+                            doneOnce = true;
+                            add(body, `<p class="ok-note">Every branch ends with a tail. The tree is finished.</p>`);
+                            ctx.done();
+                        }
                     }
                 });
             }
         },
         {
-            title: 'Count the tails',
+            title: 'Count the caterpillars',
             render(body, ctx) {
                 add(body, `<p class="big">Every branch that ends with a <b>tail</b> is one caterpillar.</p>`);
                 tree(body, LUCAS, { expandAll: true });
                 numbers(body, {
                     template: 'Lucas can build [4] caterpillars.',
-                    right: 'Look at your guess from the beginning. Were you close?',
-                    hint: 'Count the green "= caterpillar" notes.',
-                    onRight: ctx.done
+                    right: 'Here they are, all four:',
+                    hint: 'Count the green tail boxes.',
+                    onRight() {
+                        const box = add(body, `<div class="chain-gallery"></div>`);
+                        allChains(LUCAS).forEach((c, i) => add(box, `<div class="cg-item"><span>${i + 1}</span>${chainPicture(LUCAS, c)}</div>`));
+                        guessResult(body, 'chains', '4');
+                        ctx.done();
+                    }
                 });
             }
         },
@@ -398,25 +497,27 @@
                     theme: 'train', start: { hole: 's' }, end: { peg: 't' },
                     parts: [{ n: '1', peg: 'c', hole: 's' }, { n: '2', peg: 's', hole: 't' }, { n: '3', peg: 's', hole: 'c' }, { n: '4', peg: 't', hole: 's' }]
                 };
-                add(body, `<p class="big">Sometimes a branch gets <b>stuck</b>: nothing fits and it never reaches the end. That is a <b>dead end</b>. Don't count it!</p>`);
-                add(body, `<p>Anna has an engine, a last wagon and 4 wagons:</p>`);
+                add(body, `<p class="big">Sometimes a branch gets <b>stuck</b>: nothing that is left fits, so it never reaches the end. That is a <b>dead end</b>. Don't count it!</p>`);
+                add(body, `<p>Same rules with a train: Anna has an engine, a last wagon and 4 wagons.</p>`);
                 body.appendChild(pieceRow(ANNA));
-                pencil(body, {
-                    task: 'Draw the tree for Anna\'s trains on paper. Cross out pieces you already used on a branch.',
-                    button: 'I drew it — show me',
-                    reveal(r) {
-                        tree(r, ANNA, { expandAll: true });
-                        choice(r, {
-                            question: 'Which wagon is <b>never</b> part of a finished train?',
-                            options: ['wagon 1', 'wagon 2', 'wagon 3', 'wagon 4'],
-                            answer: 3,
-                            right: 'Wagon 4 only appears on branches that get stuck. So it is never in a finished train.',
-                            wrong: () => 'Look only at the branches that end with the last wagon. Which wagons are on them?',
-                            onRight() {
-                                callout(r, 'warn', 'Remember', 'Each piece can be used <b>only once</b> in a chain, so cross out pieces you already used on that branch. Count only branches that reach the end.');
-                                ctx.done();
-                            }
-                        });
+                add(body, `<p>Grow Anna's tree. Watch for branches that get stuck:</p>`);
+                let asked = false;
+                tree(body, ANNA, {
+                    explain: true,
+                    onCount(n) {
+                        if (n === 2 && !asked) {
+                            asked = true;
+                            reveal(body, 'I grew the whole tree', box => {
+                                choice(box, {
+                                    question: 'Which wagon is <b>never</b> part of a finished train?',
+                                    options: ['wagon 1', 'wagon 2', 'wagon 3', 'wagon 4'],
+                                    answer: 3,
+                                    right: 'Wagon 4 only appears on branches that get stuck. So it is never in a finished train.',
+                                    wrong: () => 'Look only at the branches that end with the last wagon. Which wagons are on them?',
+                                    onRight: ctx.done
+                                });
+                            });
+                        }
                     }
                 });
             }
@@ -426,20 +527,14 @@
             render(body, ctx) {
                 add(body, `<p class="big">This works for every "how many chains" question:</p>`);
                 add(body, `<ol class="recipe">
-                    <li><b>Make the list.</b> For each piece: what can come right after it?</li>
+                    <li><b>What comes next?</b> For each piece: which pieces have a peg that fits its hole?</li>
                     <li><b>Grow a tree</b> from the start. Every piece that fits is a new branch.</li>
-                    <li><b>Cross out</b> pieces already used on that branch.</li>
+                    <li><b>Each piece only once</b> on a branch.</li>
                     <li><b>Stuck?</b> That branch is a dead end. Don't count it.</li>
                     <li><b>Count</b> the branches that reach the end.</li>
                 </ol>`);
-                pencil(body, {
-                    task: 'Copy these 5 steps into your notebook. Then go to <b>Practice</b>.',
-                    button: 'I copied it',
-                    reveal(r) {
-                        r.innerHTML = `<a class="btn btn-primary" href="#/lesson/chains/practice">Start practice</a>`;
-                        ctx.done();
-                    }
-                });
+                add(body, `<a class="btn btn-primary align-start" href="#/lesson/chains/practice">Start practice</a>`);
+                ctx.done();
             }
         }
     ];
@@ -579,7 +674,7 @@
         },
         steps,
         practice,
-        practiceIntro: 'Use the recipe: make the list, grow a tree, cross out used pieces, skip dead ends, count.',
+        practiceIntro: 'Use the recipe: what comes next, grow a tree, each piece once, skip dead ends, count.',
         figure(q, el) {
             if (q.figureHTML) el.innerHTML = q.figureHTML();
             else if (q.set) el.appendChild(pieceRow(q.set));
@@ -587,9 +682,9 @@
         helper(q) {
             if (!q.tree || q.extra) return null;
             return {
-                label: 'I drew my tree on paper — show me the tree',
+                label: 'Show me the tree',
                 title: 'Click the boxes to grow the tree',
-                draw: el => tree(el, q.set, { first: q.first })
+                draw: el => tree(el, q.set, { first: q.first, explain: true })
             };
         },
         // for tests

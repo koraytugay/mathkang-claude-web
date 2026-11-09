@@ -1,4 +1,4 @@
-// ui.js - small building blocks used by lessons: quizzes, pencil boxes, number boxes, celebrations.
+// ui.js - small building blocks used by lessons: quizzes, guesses, number boxes, callouts.
 (function () {
     function el(html) {
         const t = document.createElement('template');
@@ -52,22 +52,44 @@
         return wrap;
     }
 
-    // A "pencil and paper" task with a button that reveals the answer.
-    function pencil(container, opts) {
-        const wrap = add(container, `<div class="pencil">
-            <div class="pencil-head">✏️ On paper</div>
-            <div class="pencil-task">${opts.task}</div>
-            ${opts.reveal ? `<button type="button" class="btn-random pencil-btn">${opts.button || 'I did it on paper — check it!'}</button>` : ''}
-            <div class="pencil-reveal"></div>
+    // A quick guess at the start of a lesson. Remembered (in memory only) and compared at the end.
+    const guesses = {};
+    function guess(container, opts) {
+        const wrap = add(container, `<div class="guess">
+            <div class="guess-head">Your guess</div>
+            <div class="quiz-q">${opts.question || 'Don\'t work it out yet. Just pick what feels right:'}</div>
+            <div class="quiz-options"></div>
+            <div class="feedback"></div>
         </div>`);
-        if (opts.reveal) {
-            const btn = wrap.querySelector('.pencil-btn');
-            btn.addEventListener('click', () => {
-                btn.remove();
-                opts.reveal(wrap.querySelector('.pencil-reveal'));
+        const row = wrap.querySelector('.quiz-options');
+        const fb = wrap.querySelector('.feedback');
+        opts.options.forEach(o => {
+            const b = add(row, `<button type="button" class="opt">${o}</button>`);
+            b.addEventListener('click', () => {
+                guesses[opts.id] = o;
+                row.querySelectorAll('.opt').forEach(x => x.classList.remove('chosen'));
+                b.classList.add('chosen');
+                feedback(fb, 'good', `You guessed <b>${o}</b>. Let's find out if you are right!`);
+                opts.onPicked && opts.onPicked(o);
             });
-        }
+        });
         return wrap;
+    }
+    function guessResult(container, id, answer) {
+        const g = guesses[id];
+        if (g === undefined) return;
+        const right = String(g) === String(answer);
+        callout(container, right ? 'good' : 'plain', right ? 'Your guess was right!' : 'Your guess',
+            right ? `You guessed <b>${g}</b> at the start. Now you also know <b>why</b>.`
+                  : `You guessed <b>${g}</b> at the start. The real answer is <b>${answer}</b>. Now you know the trick, so next time you won't need to guess.`);
+    }
+
+    // A button that shows more (an explanation, a picture) when clicked.
+    function reveal(container, label, fill) {
+        const btn = add(container, `<button type="button" class="btn-random">${label}</button>`);
+        const box = add(container, `<div class="reveal-box"></div>`);
+        btn.addEventListener('click', () => { btn.remove(); fill(box); });
+        return box;
     }
 
     // Number boxes inside a sentence. template: "60 ÷ 6 = [10] blocks" -> [n] becomes an input.
@@ -98,7 +120,7 @@
                 wrap.querySelector('button').remove();
                 opts.onRight && opts.onRight();
             } else {
-                feedback(fb, 'bad', opts.hint || 'Some boxes are not right yet. Check them on paper!');
+                feedback(fb, 'bad', opts.hint || 'Some boxes are not right yet. Try again!');
             }
         };
         wrap.querySelector('button').addEventListener('click', check);
@@ -111,5 +133,5 @@
         return add(container, `<div class="callout callout-${kind}"><div class="callout-title">${title}</div><div>${html}</div></div>`);
     }
 
-    window.UI = { el, add, feedback, choice, pencil, numbers, callout, praise };
+    window.UI = { el, add, feedback, choice, guess, guessResult, reveal, numbers, callout, praise };
 })();

@@ -46,8 +46,7 @@
             <h2>Pick a topic</h2>
             <p>Every topic here comes from a Kangaroo question that was tricky. We go through it <b>step by step</b>.</p>
             <ul class="hero-rules">
-                <li><b>Pencil and paper</b> next to you, always.</li>
-                <li><b>Go slowly.</b> One step at a time.</li>
+                <li><b>Go slowly.</b> One step at a time. Read every step.</li>
                 <li><b>Guess first</b>, then check.</li>
                 <li><b>Mistakes are OK.</b> That's how we learn.</li>
             </ul>
@@ -147,7 +146,7 @@
         };
         drawScore();
 
-        add(main, `<p class="practice-intro">Do every question on <b>paper first</b>. ${l.practiceIntro || ''} Only then click your answer!</p>`);
+        add(main, `<p class="practice-intro"><b>Think first, then click.</b> ${l.practiceIntro || ''} Stuck? Use the hint or the picture.</p>`);
 
         let lastPart = null;
         l.practice.forEach(q => {
@@ -178,7 +177,7 @@
                 const drawBtn = add(tools, `<button type="button" class="btn-random">${helper.label}</button>`);
                 drawBtn.addEventListener('click', () => {
                     drawBtn.remove();
-                    const box = add(help, `<div class="callout"><div class="callout-title">${helper.title || 'Compare with your paper'}</div></div>`);
+                    const box = add(help, `<div class="callout"><div class="callout-title">${helper.title || 'Here is the picture'}</div></div>`);
                     helper.draw(box);
                 });
             }
@@ -198,7 +197,7 @@
             let firstTry = true;
             choice(card.querySelector('.q-quiz'), {
                 options: q.choices, answer: q.answer, letters: true,
-                wrong: () => 'Not this one. Check your paper again, or use the hint.',
+                wrong: () => 'Not this one. Think again, or use the hint.',
                 onWrong() { firstTry = false; },
                 onRight() {
                     const p = lessonProgress(l.id);

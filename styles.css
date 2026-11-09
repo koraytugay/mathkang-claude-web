@@ -190,22 +190,6 @@ button.kid:hover { background: #eef2f6; }
 .feedback.good { background: #e8f5e9; border-left: 4px solid #43a047; color: #1b5e20; }
 .feedback.bad { background: #fff8e1; border-left: 4px solid #f0a020; color: #5d4000; }
 
-/* Paper task */
-.pencil {
-    border: 1px dashed #999; border-radius: 8px; padding: 12px 16px; background: #fcfcfa;
-    display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
-}
-.pencil-head { font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.4px; font-size: 0.85rem; }
-.pencil-task { width: 100%; }
-.pencil-reveal { width: 100%; display: flex; flex-direction: column; gap: 10px; }
-.pencil-reveal:empty { display: none; }
-
-.paper-table {
-    display: grid; grid-template-columns: 80px repeat(12, minmax(26px, 1fr)); margin: 10px 0 4px;
-    border: 1.5px solid #555; background: #fff; max-width: 640px;
-}
-.paper-table div { border: 1px solid #ccc; min-height: 34px; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
-
 .callout { border-radius: 8px; padding: 12px 16px; background: #f6f8fa; border-left: 4px solid #1f2328; color: #222; }
 .callout-title { font-weight: 700; margin-bottom: 4px; }
 .callout-warn { border-left-color: #f0a020; background: #fffaf0; }
@@ -288,8 +272,6 @@ button.kid:hover { background: #eef2f6; }
 .fit-table { border-collapse: collapse; background: #fff; font-size: 1.1rem; }
 .fit-table th, .fit-table td { border: 1px solid #ccc; padding: 6px 12px; text-align: left; }
 .fit-table th { background: #f3f4f6; font-size: 0.95rem; }
-.fit-table.paper { margin: 10px 0 4px; }
-.fit-table.paper td { min-width: 120px; height: 34px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { font: inherit; font-size: 1rem; padding: 4px 12px; border-radius: 999px; border: 1px solid #c4c9d0; background: #fff; cursor: pointer; }
 .chip.on { background: #1f2328; border-color: #1f2328; color: #fff; }
@@ -323,7 +305,7 @@ button.kid:hover { background: #eef2f6; }
 .tnote.good { color: #2e7d32; font-weight: 600; }
 .tnote.bad { color: #b07000; }
 
-.step-body > button, .pencil-reveal > button, .quiz > button { align-self: flex-start; }
+.step-body > button, .reveal-box > button, .quiz > button { align-self: flex-start; }
 
 /* ---------------- Circle runners lesson ---------------- */
 .center-pic { display: flex; justify-content: center; }
@@ -336,3 +318,61 @@ button.kid:hover { background: #eef2f6; }
 .track-msg { font-size: 1.05rem; min-height: 2.5em; }
 .run-table { align-self: flex-start; }
 .btn-random:disabled { opacity: 0.6; cursor: default; background: #f0f6fc; color: #0969da; }
+
+/* ---------------- Guess, reveal, misc ---------------- */
+.guess { border: 1px solid #d0d7de; border-radius: 8px; padding: 12px 16px; background: #fcfcfc; display: flex; flex-direction: column; gap: 10px; }
+.guess-head { font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.4px; font-size: 0.85rem; }
+.opt.chosen { background: #1f2328; border-color: #1f2328; color: #fff; }
+.reveal-box { display: flex; flex-direction: column; gap: 12px; }
+.reveal-box:empty { display: none; }
+.align-start { align-self: flex-start; }
+.pics { gap: 24px; flex-wrap: wrap; align-items: center; }
+.rules { margin-left: 24px; line-height: 1.7; }
+
+/* Fill-in table (two patterns) */
+.fill-wrap { display: flex; flex-direction: column; gap: 10px; }
+.fill-table { display: grid; gap: 3px; max-width: 760px; overflow-x: auto; }
+.fh { font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; color: #555; min-height: 30px; }
+.fh:nth-child(13n+1) { justify-content: flex-start; }
+.fc { min-height: 42px; border: 1.5px solid #c4c9d0; border-radius: 6px; background: #fff; cursor: pointer; font: inherit; display: flex; align-items: center; justify-content: center; padding: 0; }
+.fc:hover:not(:disabled) { border-color: #1f2328; }
+.fc.fixed { background: #f3f4f6; cursor: default; }
+.fc.wrong { border-color: #f0a020; background: #fff8e1; }
+.fc:disabled { cursor: default; }
+.fc .q { color: #aaa; font-weight: 700; }
+.shirt-tag.mini { padding: 0 5px; font-size: 0.85rem; }
+.card-big { font-size: 1.35rem; line-height: 1; }
+
+/* Blocks picture */
+.blocks { display: flex; flex-wrap: wrap; gap: 6px; }
+.block-box { border: 1.5px solid #333; border-radius: 6px; padding: 6px 10px; background: #fff; text-align: center; min-width: 76px; }
+.block-box.partial { border-style: dashed; background: #fff8e1; }
+.block-range { font-size: 0.85rem; color: #666; font-weight: 600; }
+.block-star { font-weight: 800; font-size: 1rem; }
+
+/* Restart rows */
+.restart { display: flex; flex-direction: column; gap: 8px; overflow-x: auto; }
+.restart-row { display: flex; align-items: center; gap: 4px; }
+.restart-label { flex: 0 0 230px; font-size: 1rem; }
+.rn { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid transparent; background: #f3f4f6; font: inherit; font-weight: 700; cursor: pointer; color: #555; flex: 0 0 auto; }
+.rn.on { border-color: #333; background: #fff; color: #111; }
+.rn.both { background: #1f2328; color: #fff; }
+
+/* Chains: anatomy, mini tree, gallery, tree explanation */
+.anatomy { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.anat-label { font-weight: 800; font-size: 1.2rem; text-align: center; }
+.anat-label small { font-weight: 500; font-size: 0.9rem; color: #666; }
+.anat-label.left::after { content: ' →'; }
+.anat-label.right::before { content: '← '; }
+.mini-tree { display: flex; align-items: center; gap: 0; padding: 10px; background: #fafafa; border: 1px solid #e5e7eb; border-radius: 8px; flex-wrap: wrap; }
+.mt-node { border: 1.5px solid #333; border-radius: 6px; padding: 5px 12px; background: #fff; font-weight: 600; font-size: 1rem; }
+.mt-kids { display: flex; flex-direction: column; gap: 10px; border-left: 2px solid #999; margin-left: 16px; padding-left: 16px; position: relative; }
+.mt-kids::before { content: ''; position: absolute; left: -34px; top: 50%; width: 16px; border-top: 2px solid #999; }
+.mt-note { margin-left: 14px; font-style: italic; color: #555; font-size: 1rem; }
+.chain-gallery { display: flex; flex-direction: column; gap: 8px; }
+.cg-item { display: flex; align-items: center; gap: 12px; }
+.cg-item > span { font-weight: 800; width: 24px; text-align: right; }
+.joined.plug-sm svg + svg { margin-left: -38px; }
+.tree-msg { display: none; padding: 10px 14px; border-radius: 8px; background: #f6f8fa; border-left: 4px solid #1f2328; font-size: 1.05rem; }
+.tree-msg.show { display: block; }
+.callout-plain { border-left-color: #888; }

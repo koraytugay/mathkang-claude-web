@@ -130,9 +130,14 @@
         return `<span class="card-tag" style="color:${CARD_COLOR[kind]}">${EMOJI[kind]} ${kind}</span>`;
     }
 
+    // A small T-shirt drawing in the same style as the children.
+    function shirtIcon(kind, size = 30) {
+        return `<svg viewBox="0 0 30 30" width="${size}" height="${size}" aria-hidden="true"><path d="M9,4 L4,8 L6,13 L9,11 L9,27 L21,27 L21,11 L24,13 L26,8 L21,4 Q15,8 9,4 z" fill="${SHIRT_FILL[kind]}" stroke="#333" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+    }
+
     function shirtTag(kind) {
         return `<span class="shirt-tag shirt-${kind}">${kind}</span>`;
     }
 
-    window.Draw = { child, strip, lamps, shape, cardTag, shirtTag, at, CARD_COLOR, EMOJI };
+    window.Draw = { child, strip, lamps, shape, cardTag, shirtTag, shirtIcon, at, CARD_COLOR, EMOJI };
 })();

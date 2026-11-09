@@ -1,6 +1,6 @@
 // Lesson: two runners going opposite ways round a circle (Math Kangaroo 2025, Ecolier, Q10).
 (function () {
-    const { add, choice, pencil, numbers, callout, feedback, praise } = window.UI;
+    const { add, choice, guess, guessResult, reveal, numbers, callout, feedback, praise } = window.UI;
 
     const CW_COLOR = '#1e6fd9';   // clockwise runner
     const CCW_COLOR = '#e67e22';  // anticlockwise runner
@@ -52,6 +52,60 @@
         return s;
     }
 
+    // The track after `time` meetings (can be fractional): runners, the arcs they ran since the last meeting, meeting markers.
+    function trackPicture(t, time, S = 260) {
+        const n = N(t);
+        const cx = S / 2, cy = S / 2 + 6, r = S * 0.34;
+        const last = Math.floor(time === Math.floor(time) && time > 0 ? time - 1 : time);
+        const frac = time - last;
+        const startA = -90 + (last * t.cw.parts) * 360 / n;
+        const cwA = startA + frac * t.cw.parts * 360 / n;
+        const ccwA = startA - frac * t.ccw.parts * 360 / n;
+        let extra = '';
+        extra += `<path d="${arcPath(cx, cy, r - 30, startA, cwA)}" fill="none" stroke="${CW_COLOR}" stroke-width="7" stroke-linecap="round" opacity="0.75"/>`;
+        extra += `<path d="${arcPath(cx, cy, r - 40, startA, ccwA)}" fill="none" stroke="${CCW_COLOR}" stroke-width="7" stroke-linecap="round" opacity="0.75"/>`;
+        for (let m = 1; m <= Math.floor(time); m++) {
+            const a = -90 + (m * t.cw.parts) * 360 / n;
+            const [x, y] = pt(cx, cy, r + 2, a);
+            extra += `<circle cx="${x}" cy="${y}" r="9" fill="#fff1a8" stroke="#333" stroke-width="1.2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="800">${m}</text>`;
+        }
+        const [x1, y1] = pt(cx, cy, r, cwA);
+        const [x2, y2] = pt(cx, cy, r, ccwA);
+        extra += `<circle cx="${x2}" cy="${y2}" r="8" fill="${CCW_COLOR}" stroke="#fff" stroke-width="2"/>`;
+        extra += `<circle cx="${x1}" cy="${y1}" r="8" fill="${CW_COLOR}" stroke="#fff" stroke-width="2"/>`;
+        return circleSVG(t, { size: S, extra });
+    }
+
+    // A circle cut into its parts, each part shaded and numbered.
+    function partsPicture(n, opts = {}) {
+        const S = opts.size || 200, cx = S / 2, cy = S / 2, r = S * 0.36;
+        const from = opts.from || 1;
+        let s = `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}">`;
+        const dir = opts.reverse ? -1 : 1;
+        for (let i = 0; i < n; i++) {
+            const a0 = -90 + dir * i * 360 / n, a1 = a0 + dir * 360 / n;
+            s += `<path d="${arcPath(cx, cy, r, Math.min(a0, a1) + 1.5, Math.max(a0, a1) - 1.5)}" fill="none" stroke="${i % 2 ? '#9fb3c8' : '#cfd8e3'}" stroke-width="16"/>`;
+            const [x, y] = pt(cx, cy, r, (a0 + a1) / 2);
+            s += `<text x="${x}" y="${y + 5}" text-anchor="middle" font-size="14" font-weight="800" fill="#222">${from + i}</text>`;
+            const [px, py] = pt(cx, cy, r, a0);
+            s += `<circle cx="${px}" cy="${py}" r="4" fill="#fff" stroke="#333" stroke-width="1.5"/>`;
+            if (opts.labels) { const [lx, ly] = pt(cx, cy, r - 26, a0); s += `<text x="${lx}" y="${ly + 5}" text-anchor="middle" font-size="14" font-weight="700">${opts.labels[i]}</text>`; }
+        }
+        if (opts.caption) s += `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="#555">${opts.caption}</text>`;
+        return s + '</svg>';
+    }
+
+    // A clock face with an arrow showing clockwise.
+    function clockSVG() {
+        const S = 170, c = S / 2, r = 62;
+        let s = `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}"><circle cx="${c}" cy="${c}" r="${r}" fill="#fff" stroke="#333" stroke-width="2"/>`;
+        [['12', -90], ['3', 0], ['6', 90], ['9', 180]].forEach(([t, a]) => { const [x, y] = pt(c, c, r - 14, a); s += `<text x="${x}" y="${y + 5}" text-anchor="middle" font-size="15" font-weight="700">${t}</text>`; });
+        s += `<line x1="${c}" y1="${c}" x2="${c}" y2="${c - 38}" stroke="#333" stroke-width="3" stroke-linecap="round"/><line x1="${c}" y1="${c}" x2="${c + 26}" y2="${c}" stroke="#333" stroke-width="3" stroke-linecap="round"/>`;
+        s += `<defs><marker id="clock-arrow" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="${CW_COLOR}"/></marker></defs>`;
+        s += `<path d="${arcPath(c, c, r + 12, -60, 20)}" fill="none" stroke="${CW_COLOR}" stroke-width="3" marker-end="url(#clock-arrow)"/>`;
+        return s + '</svg>';
+    }
+
     // Animated track. opts: { table: true, stopAfter, onMeeting(k) }
     function track(container, t, opts = {}) {
         const n = N(t);
@@ -74,28 +128,7 @@
         const tbody = wrap.querySelector('tbody');
         let k = 0, anim = null;
 
-        function draw(time) {
-            // time = meetings so far (can be fractional while running)
-            const S = 260, cx = S / 2, cy = S / 2 + 6, r = S * 0.34;
-            const last = Math.floor(time === Math.floor(time) && time > 0 ? time - 1 : time);
-            const frac = time - last;
-            const startA = -90 + (last * t.cw.parts) * 360 / n;
-            const cwA = startA + frac * t.cw.parts * 360 / n;
-            const ccwA = startA - frac * t.ccw.parts * 360 / n;
-            let extra = '';
-            extra += `<path d="${arcPath(cx, cy, r - 30, startA, cwA)}" fill="none" stroke="${CW_COLOR}" stroke-width="7" stroke-linecap="round" opacity="0.75"/>`;
-            extra += `<path d="${arcPath(cx, cy, r - 40, startA, ccwA)}" fill="none" stroke="${CCW_COLOR}" stroke-width="7" stroke-linecap="round" opacity="0.75"/>`;
-            for (let m = 1; m <= Math.floor(time); m++) {
-                const a = -90 + (m * t.cw.parts) * 360 / n;
-                const [x, y] = pt(cx, cy, r + 2, a);
-                extra += `<circle cx="${x}" cy="${y}" r="9" fill="#fff1a8" stroke="#333" stroke-width="1.2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="800">${m}</text>`;
-            }
-            const [x1, y1] = pt(cx, cy, r, cwA);
-            const [x2, y2] = pt(cx, cy, r, ccwA);
-            extra += `<circle cx="${x2}" cy="${y2}" r="8" fill="${CCW_COLOR}" stroke="#fff" stroke-width="2"/>`;
-            extra += `<circle cx="${x1}" cy="${y1}" r="8" fill="${CW_COLOR}" stroke="#fff" stroke-width="2" ${frac === 1 || frac === 0 ? 'opacity="0.85"' : ''}/>`;
-            pic.innerHTML = circleSVG(t, { size: S, extra });
-        }
+        function draw(time) { pic.innerHTML = trackPicture(t, time); }
 
         function meeting() {
             k++;
@@ -158,36 +191,69 @@
         {
             title: 'The puzzle',
             render(body, ctx) {
-                add(body, `<p class="big">Lisa and Max draw a big circle in the sand and write A, B, C and D on it. They start together at A. Lisa runs <b>clockwise</b>, Max runs <b>anticlockwise</b>.</p>`);
+                add(body, `<p class="big">Lisa and Max draw a big circle in the sand and write A, B, C and D on it. They start together at A. Lisa runs <b style="color:${CW_COLOR}">clockwise</b>, Max runs <b style="color:${CCW_COLOR}">anticlockwise</b>.</p>`);
                 add(body, `<div class="center-pic">${circleSVG(LISA)}</div>`);
                 add(body, `<p>They meet for the first time at <b>B</b>, then at <b>C</b>, at <b>D</b> and then again at <b>A</b>.</p>`);
                 callout(body, 'question', 'The question', 'How many times has <b>Max</b> run around the circle by then?');
-                pencil(body, {
-                    task: 'Write down your <b>guess</b> on paper.',
-                    button: 'I wrote my guess',
-                    reveal(r) { r.innerHTML = `<p class="ok-note">Keep that paper. Let's find out!</p>`; ctx.done(); }
+                guess(body, { id: 'runners', options: ['1 time', '3 times', '4 times', '5 times', '8 times'], onPicked: ctx.done });
+            }
+        },
+        {
+            title: 'Clockwise and anticlockwise',
+            render(body, ctx) {
+                add(body, `<p class="big"><b style="color:${CW_COLOR}">Clockwise</b> means the way the hands of a clock go: from 12 to 3 to 6 to 9. <b style="color:${CCW_COLOR}">Anticlockwise</b> is the other way.</p>`);
+                add(body, `<div class="center-pic pics">${clockSVG()}${circleSVG(LISA, { size: 200 })}</div>`);
+                choice(body, {
+                    question: `Lisa runs <b style="color:${CW_COLOR}">clockwise</b> from A. Which letter does she reach first?`,
+                    options: ['B', 'C', 'D'],
+                    answer: 0,
+                    right: 'A is at the top, like the 12. Clockwise goes to the right first: B.',
+                    wrong: () => 'Clockwise: like a clock hand going from 12 to 3. Which letter is where the 3 would be?',
+                    onRight() {
+                        choice(body, {
+                            question: `Max runs <b style="color:${CCW_COLOR}">anticlockwise</b> from A. Which letter does he reach first?`,
+                            options: ['B', 'C', 'D'],
+                            answer: 2,
+                            right: 'Anticlockwise goes to the left first: D. So they run away from each other.',
+                            wrong: () => 'Anticlockwise is the other way: from 12 to 9.',
+                            onRight: ctx.done
+                        });
+                    }
                 });
             }
         },
         {
             title: 'Cut the circle into equal parts',
             render(body, ctx) {
-                add(body, `<p class="big">The letters A, B, C, D cut the circle into <b>4 equal parts</b>. We will measure everything in parts.</p>`);
-                add(body, `<div class="center-pic">${circleSVG(LISA)}</div>`);
-                add(body, `<p>The first meeting is at B.</p>`);
+                add(body, `<p class="big">The letters cut the circle into equal <b>parts</b>. We measure how far someone runs in parts.</p>`);
+                add(body, `<div class="center-pic">${partsPicture(4, { labels: ['A', 'B', 'C', 'D'], size: 220 })}</div>`);
+                add(body, `<p>A to B is one part, B to C is one part, and so on.</p>`);
+                numbers(body, {
+                    template: 'Once around the whole circle (one <b>lap</b>) = [4] parts',
+                    right: 'A → B → C → D → A: 4 parts make one lap.',
+                    hint: 'Count the shaded pieces in the picture.',
+                    onRight: ctx.done
+                });
+            }
+        },
+        {
+            title: 'Run to the first meeting',
+            render(body, ctx) {
+                add(body, `<p class="big">They start at A and meet for the first time at <b>B</b>. Here is the path each one ran:</p>`);
+                add(body, `<div class="center-pic">${trackPicture(LISA, 1)}</div>`);
                 choice(body, {
-                    question: `How many parts did <b style="color:${CW_COLOR}">Lisa</b> run from A to B (clockwise)?`,
+                    question: `How many parts did <b style="color:${CW_COLOR}">Lisa</b> run (the blue path, A to B)?`,
                     options: ['1 part', '2 parts', '3 parts', '4 parts'],
                     answer: 0,
                     right: 'A to B is just 1 part.',
-                    wrong: () => 'Lisa goes clockwise: from A straight to B. Count the gaps.',
+                    wrong: () => 'Follow the blue path from A. How many gaps does it cover?',
                     onRight() {
                         choice(body, {
-                            question: `And <b style="color:${CCW_COLOR}">Max</b>? He runs the other way: A → D → C → B.`,
+                            question: `And <b style="color:${CCW_COLOR}">Max</b> (the orange path, A → D → C → B)?`,
                             options: ['1 part', '2 parts', '3 parts', '4 parts'],
                             answer: 2,
                             right: 'A to D, D to C, C to B: 3 parts.',
-                            wrong: () => 'Put your finger on A and go the other way round to B. Count each gap.',
+                            wrong: () => 'Follow the orange path from A the other way round to B. Count each gap.',
                             onRight: ctx.done
                         });
                     }
@@ -197,23 +263,44 @@
         {
             title: 'The big idea',
             render(body, ctx) {
-                add(body, `<p class="big">Press the button and watch them run to their first meeting.</p>`);
-                let shown = false;
-                track(body, LISA, {
-                    stopAfter: 1,
-                    onMeeting() {
-                        if (shown) return;
-                        shown = true;
-                        callout(body, 'idea', 'The big idea',
-                            `Lisa's piece (1 part) and Max's piece (3 parts) <b>together make the whole circle</b>: 1 + 3 = 4 parts.<br>
-                             Between two meetings, the two runners <b>together</b> run exactly <b>once around</b>.`);
-                        add(body, `<p>Let's test it. A circle is cut into <b>8</b> equal parts. Zoe and Jack start together and run in opposite directions. When they meet, Zoe has run 3 parts.</p>`);
-                        numbers(body, {
-                            template: 'Jack has run [5] parts.',
-                            right: 'Together 8 parts (once around): 8 − 3 = 5.',
-                            hint: 'Together they run once around. How many parts is once around?',
-                            onRight: ctx.done
-                        });
+                add(body, `<p class="big">Lisa ran 1 part, Max ran 3 parts. 1 + 3 = 4 parts. That is the <b>whole circle</b>!</p>`);
+                add(body, `<p>Cut the circle open at A and lay it flat like a rope. Lisa starts at the left end, Max at the right end:</p>`);
+                add(body, `<div class="center-pic">${flatLine(LISA)}</div>`);
+                add(body, `<p>They run towards each other and meet where their pieces touch. Together their pieces always fill the <b>whole rope</b>.</p>`);
+                callout(body, 'idea', 'The big idea', 'From one meeting to the next, the two runners <b>together</b> run exactly <b>once around</b> the circle.');
+                add(body, `<p>Watch it happen:</p>`);
+                track(body, LISA, { stopAfter: 1, onMeeting: ctx.done });
+            }
+        },
+        {
+            title: 'Try the big idea',
+            render(body, ctx) {
+                const ZJ = { labels: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], cw: { name: 'Zoe', parts: 3 }, ccw: { name: 'Jack', parts: 5 } };
+                add(body, `<p class="big">A circle is cut into <b>8</b> equal parts. Zoe and Jack start together and run in opposite directions. When they meet, Zoe has run <b>3 parts</b>.</p>`);
+                numbers(body, {
+                    template: 'Jack has run [5] parts.',
+                    right: 'Together 8 parts (once around): 8 − 3 = 5. Here is the picture:',
+                    hint: 'Together they run once around. How many parts is once around?',
+                    onRight() {
+                        add(body, `<div class="center-pic">${trackPicture(ZJ, 1)}</div>`);
+                        ctx.done();
+                    }
+                });
+            }
+        },
+        {
+            title: 'Where will they meet next?',
+            render(body, ctx) {
+                add(body, `<p class="big">After meeting at B, they keep running just as fast. Until the next meeting, again Lisa runs <b>1 part</b> and Max runs <b>3 parts</b>.</p>`);
+                add(body, `<div class="center-pic">${trackPicture(LISA, 1)}</div>`);
+                choice(body, {
+                    question: 'Where is the <b>second</b> meeting?',
+                    options: ['A', 'B', 'C', 'D'],
+                    answer: 2,
+                    right: 'From B, Lisa runs 1 more part: to C. (Max runs B → A → D → C, 3 parts.) Press the button to check:',
+                    wrong: () => 'Start at B. Lisa runs 1 part clockwise. Where does she get to?',
+                    onRight() {
+                        track(body, LISA, { stopAfter: 2, onMeeting(k) { if (k === 2) ctx.done(); } });
                     }
                 });
             }
@@ -221,18 +308,23 @@
         {
             title: 'Keep count in a table',
             render(body, ctx) {
-                add(body, `<p class="big">It is the <b>same every time</b>: from one meeting to the next, Lisa runs 1 more part and Max runs 3 more parts.</p>`);
-                pencil(body, {
-                    task: `Draw this table on paper and fill it in until they are back at A:
-                        <table class="fit-table paper"><tr><th>Meeting</th><th>Where</th><th>Lisa has run</th><th>Max has run</th></tr>
-                        <tr><td>1</td><td>B</td><td>1 part</td><td>3 parts</td></tr><tr><td>2</td><td></td><td></td><td></td></tr>
-                        <tr><td>3</td><td></td><td></td><td></td></tr><tr><td>4</td><td></td><td></td><td></td></tr></table>`,
-                    button: 'I filled my table — let them run',
-                    reveal(r) {
-                        add(r, `<p>Press the button again and again. Check each row with your paper.</p>`);
-                        track(r, LISA, {
-                            table: true,
-                            onMeeting(k) { if (k === 4) { add(r, `<p class="ok-note">They are back at A after 4 meetings.</p>`); ctx.done(); } }
+                add(body, `<p class="big">Every meeting, Lisa adds 1 part and Max adds 3 parts. They meet at B, C, D and then A.</p>`);
+                add(body, `<table class="fit-table"><tr><th>Meeting</th><th>Where</th><th>Lisa has run</th><th>Max has run</th></tr>
+                    <tr><td>1</td><td>B</td><td>1 part</td><td>3 parts</td></tr>
+                    <tr><td>2</td><td>C</td><td>2 parts</td><td>6 parts</td></tr>
+                    <tr><td>3</td><td>D</td><td>?</td><td>?</td></tr>
+                    <tr><td>4</td><td>A</td><td>?</td><td>?</td></tr></table>`);
+                numbers(body, {
+                    template: 'Meeting 3: Lisa [3] parts, Max [9] parts',
+                    right: 'Add 1 for Lisa and 3 for Max.',
+                    hint: 'Meeting 2 was Lisa 2, Max 6. Add 1 and 3.',
+                    onRight() {
+                        numbers(body, {
+                            template: 'Meeting 4: Lisa [4] parts, Max [12] parts',
+                            right: 'Now watch all four meetings and see the table fill in:',
+                            onRight() {
+                                track(body, LISA, { table: true, onMeeting(k) { if (k === 4) ctx.done(); } });
+                            }
                         });
                     }
                 });
@@ -241,33 +333,35 @@
         {
             title: 'Change parts into laps',
             render(body, ctx) {
-                add(body, `<p class="big">Max ran <b>12 parts</b>. But the question asks how many <b>times around the circle</b> (laps).</p>`);
-                pencil(body, { task: 'How many parts make one lap? Work it out on paper, then type it in.' });
+                add(body, `<p class="big">Max ran <b>12 parts</b>. But the question asks how many <b>times around the circle</b>. One time around (one lap) is 4 parts.</p>`);
+                add(body, `<div class="center-pic pics">${partsPicture(4, { from: 1, size: 150, caption: 'lap 1', reverse: true })}${partsPicture(4, { from: 5, size: 150, caption: 'lap 2', reverse: true })}${partsPicture(4, { from: 9, size: 150, caption: 'lap 3', reverse: true })}</div>`);
+                add(body, `<p>Max runs anticlockwise. His parts 1–4 are the first lap, 5–8 the second lap, 9–12 the third lap.</p>`);
                 numbers(body, {
-                    template: '12 parts ÷ [4] parts in one lap = [3] times around',
-                    right: `Max ran around <b>3 times</b>. Look at your guess from the beginning!`,
-                    hint: 'One lap is A → B → C → D → A. How many parts is that?',
-                    onRight: ctx.done
+                    template: '12 parts ÷ 4 parts in one lap = [3] times around',
+                    right: 'Max ran around <b>3 times</b>.',
+                    hint: 'How many 4s make 12?',
+                    onRight() {
+                        guessResult(body, 'runners', '3 times');
+                        ctx.done();
+                    }
                 });
             }
         },
         {
-            title: 'Another way to see it',
+            title: 'Equally fast',
             render(body, ctx) {
-                add(body, `<p class="big">Cut the circle open at A and lay it flat like a rope.</p>`);
-                add(body, `<div class="center-pic">${flatLine(LISA)}</div>`);
-                add(body, `<p>Lisa starts at the left end, Max at the right end. They meet where their two pieces touch. The two pieces <b>always fill the whole rope</b>.</p>`);
                 const t2 = { labels: ['P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W'], cw: { name: 'Anna', parts: 4 }, ccw: { name: 'Ben', parts: 4 } };
-                add(body, `<p>Now try this: Anna and Ben start at P and run <b>equally fast</b>. The circle has 8 equal parts.</p>`);
+                add(body, `<p class="big">Anna and Ben start at P and run in opposite directions, <b>equally fast</b>. The circle has 8 equal parts.</p>`);
                 add(body, `<div class="center-pic">${circleSVG(t2)}</div>`);
+                add(body, `<p>Together they run 8 parts to the first meeting. Equally fast means they each run the <b>same</b> amount.</p>`);
                 choice(body, {
                     question: 'Where do they meet for the first time?',
                     options: ['point P', 'point Q', 'point S', 'point T', 'point U'],
                     answer: 3,
-                    right: 'Equally fast means each runs half of the circle: 4 of 8 parts. T is right opposite P.',
-                    wrong: () => 'Together they run 8 parts, and they run the same amount. So each runs ...?',
+                    right: '8 parts shared equally: 4 each. T is 4 parts from P, right opposite.',
+                    wrong: () => 'Share 8 parts equally between the two. How many does Anna run?',
                     onRight() {
-                        add(body, `<div class="center-pic">${flatLine(t2)}</div>`);
+                        add(body, `<div class="center-pic">${trackPicture(t2, 1)}</div>`);
                         ctx.done();
                     }
                 });
@@ -276,21 +370,19 @@
         {
             title: 'Watch out: meetings are not laps',
             render(body, ctx) {
-                add(body, `<p class="big">Lisa and Max met <b>4 times</b>, but Max ran around only <b>3 times</b>. Read what the question asks!</p>`);
+                add(body, `<p class="big">Lisa and Max met <b>4 times</b>, but Max ran around only <b>3 times</b>. Always read what the question asks!</p>`);
                 callout(body, 'idea', 'A clever check',
-                    `Lisa's laps + Max's laps = number of meetings.<br>Here: Lisa ran 4 parts = <b>1</b> lap, Max ran <b>3</b> laps. 1 + 3 = <b>4</b> meetings. ✔<br>
-                     That's because every meeting "uses up" one lap together.`);
+                    `Lisa ran 4 parts = <b>1</b> lap. Max ran <b>3</b> laps. 1 + 3 = <b>4</b> = the number of meetings.<br>
+                     That's because each meeting "uses up" one lap together.`);
                 add(body, `<p>Tom and Mia start together at A and run in opposite directions. When they are together at A again for the first time, Tom has run around <b>once</b> and Mia <b>2 times</b>.</p>`);
                 choice(body, {
                     question: 'How many times did they meet? (Count the meeting at A, but not the start.)',
                     options: ['1', '2', '3', '4', '5'],
                     answer: 2,
-                    right: 'Together they ran 1 + 2 = 3 laps, so they met 3 times.',
+                    right: 'Together they ran 1 + 2 = 3 laps, so they met 3 times. Watch it to be sure:',
                     wrong: () => 'Every meeting = one lap together. How many laps did they run together?',
                     onRight() {
-                        add(body, `<p>Watch it to be sure:</p>`);
                         track(body, { labels: ['A', '', ''], cw: { name: 'Tom', parts: 1 }, ccw: { name: 'Mia', parts: 2 } }, {});
-                        callout(body, 'warn', 'Remember', 'Meetings and laps are different things. Write down which one the question asks for.');
                         ctx.done();
                     }
                 });
@@ -301,20 +393,14 @@
             render(body, ctx) {
                 add(body, `<p class="big">This works for every "running round a circle" question:</p>`);
                 add(body, `<ol class="recipe">
-                    <li><b>Count the parts.</b> How many equal parts is the circle cut into?</li>
-                    <li><b>First meeting:</b> how many parts did each runner run? Together = once around.</li>
+                    <li><b>Count the parts</b> in one lap.</li>
+                    <li><b>First meeting:</b> how many parts did each runner run? Together = one lap.</li>
                     <li><b>Same every time:</b> each meeting, each runner adds the same number of parts.</li>
-                    <li><b>Make a table</b> until the question's moment.</li>
-                    <li><b>Parts → laps:</b> divide by the parts in one lap. Meetings ≠ laps!</li>
+                    <li><b>Keep count</b> until the moment the question asks about.</li>
+                    <li><b>Parts → laps:</b> divide by the parts in one lap. Meetings are not laps!</li>
                 </ol>`);
-                pencil(body, {
-                    task: 'Copy these 5 steps into your notebook. Then go to <b>Practice</b>.',
-                    button: 'I copied it',
-                    reveal(r) {
-                        r.innerHTML = `<a class="btn btn-primary" href="#/lesson/circle-runners/practice">Start practice</a>`;
-                        ctx.done();
-                    }
-                });
+                add(body, `<a class="btn btn-primary align-start" href="#/lesson/circle-runners/practice">Start practice</a>`);
+                ctx.done();
             }
         }
     ];
@@ -458,7 +544,7 @@
         },
         steps,
         practice,
-        practiceIntro: 'Use the recipe: count the parts, find the parts to the first meeting, make a table, change parts into laps.',
+        practiceIntro: 'Use the recipe: count the parts, parts to the first meeting, the same every time, parts into laps.',
         figure(q, el) {
             if (!q.track) return;
             const t = NO_POINTS.includes(q.id) ? { ...q.track, labels: [q.track.labels[0]] } : q.track;
@@ -467,7 +553,7 @@
         helper(q) {
             if (!q.track) return null;
             return {
-                label: 'I worked it out on paper — let them run',
+                label: 'Let them run',
                 title: 'Press the button to see each meeting',
                 draw: el => track(el, q.track, { table: true, stopAfter: q.stopAt || q.stop })
             };
