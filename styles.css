@@ -324,3 +324,15 @@ button.kid:hover { background: #eef2f6; }
 .tnote.bad { color: #b07000; }
 
 .step-body > button, .pencil-reveal > button, .quiz > button { align-self: flex-start; }
+
+/* ---------------- Circle runners lesson ---------------- */
+.center-pic { display: flex; justify-content: center; }
+.track { display: flex; flex-direction: column; gap: 10px; }
+.track-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.track-pic { background: #fafafa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px; }
+.track-side { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 10px; }
+.legend { font-size: 1.05rem; line-height: 1.6; }
+.legend span { font-weight: 700; }
+.track-msg { font-size: 1.05rem; min-height: 2.5em; }
+.run-table { align-self: flex-start; }
+.btn-random:disabled { opacity: 0.6; cursor: default; background: #f0f6fc; color: #0969da; }
