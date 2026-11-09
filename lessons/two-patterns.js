@@ -488,13 +488,17 @@
         },
         steps,
         practice,
-        drawPractice(q, container) {
-            if (q.lamps) {
-                container.appendChild(lamps(q.lamps[0], q.lamps[1], q.lamps[2]));
-            } else if (q.draw || q.show) {
-                const d = q.draw || q.show;
-                container.appendChild(strip({ shirts: d.shirts, cards: d.cards, to: d.n, block: q.block, size: 54, more: '...' }));
-            }
+        practiceIntro: 'Use the recipe: write it down, find the block, count, multiply, check leftovers.',
+        figure(q, el) {
+            if (q.show) el.appendChild(strip({ shirts: q.show.shirts, cards: q.show.cards, to: q.show.n, size: 54 }));
+        },
+        helper(q) {
+            if (q.lamps) return { label: 'I wrote the lists on paper — show me', draw: el => el.appendChild(lamps(q.lamps[0], q.lamps[1], q.lamps[2])) };
+            if (q.draw) return {
+                label: 'I drew it on paper — show me the picture',
+                draw: el => el.appendChild(strip({ shirts: q.draw.shirts, cards: q.draw.cards, to: q.draw.n, block: q.block, size: 54, more: '...' }))
+            };
+            return null;
         }
     });
 })();

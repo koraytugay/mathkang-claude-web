@@ -147,7 +147,7 @@
         };
         drawScore();
 
-        add(main, `<p class="practice-intro">Do every question on <b>paper first</b>. Use the recipe: write it down, find the block, count, multiply, check leftovers. Only then click your answer!</p>`);
+        add(main, `<p class="practice-intro">Do every question on <b>paper first</b>. ${l.practiceIntro || ''} Only then click your answer!</p>`);
 
         let lastPart = null;
         l.practice.forEach(q => {
@@ -165,7 +165,7 @@
                 <div class="q-help"></div>
                 <div class="q-quiz"></div>
             </div>`);
-            if (q.show) l.drawPractice(q, card.querySelector('.q-figure'));
+            if (l.figure) l.figure(q, card.querySelector('.q-figure'));
             const tools = card.querySelector('.q-tools');
             const help = card.querySelector('.q-help');
             const hintBtn = add(tools, `<button type="button" class="btn-random">Hint</button>`);
@@ -173,12 +173,13 @@
                 hintBtn.remove();
                 add(help, `<div class="callout"><div class="callout-title">Hint</div><div>${q.hint}</div></div>`);
             });
-            if (q.draw || q.lamps) {
-                const drawBtn = add(tools, `<button type="button" class="btn-random">I drew it on paper — show me the picture</button>`);
+            const helper = l.helper && l.helper(q);
+            if (helper) {
+                const drawBtn = add(tools, `<button type="button" class="btn-random">${helper.label}</button>`);
                 drawBtn.addEventListener('click', () => {
                     drawBtn.remove();
-                    const box = add(help, `<div class="callout"><div class="callout-title">Compare with your drawing</div></div>`);
-                    l.drawPractice(q, box);
+                    const box = add(help, `<div class="callout"><div class="callout-title">${helper.title || 'Compare with your paper'}</div></div>`);
+                    helper.draw(box);
                 });
             }
             const showSolution = () => add(card, `<div class="callout callout-good"><div class="callout-title">Solution</div><div>${q.solution}</div></div>`);

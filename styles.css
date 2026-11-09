@@ -267,3 +267,60 @@ button.kid:hover { background: #eef2f6; }
     .paper-table div { font-size: 0.8rem; }
 }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin-right: 8px; vertical-align: -2px; border: 1px solid #999; }
+
+/* ---------------- Chains lesson ---------------- */
+.pieces { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; background: #fafafa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+.piece-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 6px; border-radius: 6px; border: 2px solid transparent; background: transparent; font: inherit; color: #333; }
+.piece-cell span { font-size: 0.95rem; font-weight: 600; color: #555; }
+.piece-cell.pick { cursor: pointer; }
+.piece-cell.pick:hover { background: #eef2f6; }
+.piece-cell.picked { background: #e8f5e9; border-color: #43a047; }
+.opt svg { display: block; }
+
+.fit-examples { display: flex; flex-wrap: wrap; gap: 14px; }
+.fit-ex { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fafafa; font-size: 1.05rem; }
+.fit-ex.good { border-left: 4px solid #43a047; }
+.fit-ex.bad { border-left: 4px solid #f0a020; }
+.joined { display: flex; }
+.joined svg + svg { margin-left: -6px; }
+.joined.plug svg + svg { margin-left: -41px; }
+
+.fit-table { border-collapse: collapse; background: #fff; font-size: 1.1rem; }
+.fit-table th, .fit-table td { border: 1px solid #ccc; padding: 6px 12px; text-align: left; }
+.fit-table th { background: #f3f4f6; font-size: 0.95rem; }
+.fit-table.paper { margin: 10px 0 4px; }
+.fit-table.paper td { min-width: 120px; height: 34px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 1rem; padding: 4px 12px; border-radius: 999px; border: 1px solid #c4c9d0; background: #fff; cursor: pointer; }
+.chip.on { background: #1f2328; border-color: #1f2328; color: #fff; }
+.chip:disabled { cursor: default; }
+
+.builder { display: flex; flex-direction: column; gap: 10px; }
+.chain { display: flex; align-items: center; min-height: 64px; padding: 8px; background: #fafafa; border: 1px dashed #bbb; border-radius: 8px; overflow-x: auto; }
+.chain svg + svg { margin-left: -41px; }
+.found ol { margin: 6px 0 0 24px; }
+
+/* Tree that grows to the right */
+.tree-wrap { display: flex; flex-direction: column; gap: 8px; }
+.tree-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tree { overflow-x: auto; padding: 8px; background: #fafafa; border: 1px solid #e5e7eb; border-radius: 8px; }
+.tnode { display: flex; align-items: center; }
+.tline { display: flex; align-items: center; gap: 8px; }
+.tkids { display: flex; flex-direction: column; gap: 6px; padding-left: 16px; }
+.tkids:empty { display: none; }
+.tkids > .tnode { position: relative; }
+.tkids > .tnode::before { content: ''; position: absolute; left: -16px; width: 16px; top: 50%; border-top: 2px solid #999; }
+.tkids > .tnode::after { content: ''; position: absolute; left: -16px; top: -3px; bottom: -3px; border-left: 2px solid #999; }
+.tkids > .tnode:first-child::after { top: 50%; }
+.tkids > .tnode:last-child::after { bottom: 50%; }
+.tnode:has(> .tkids:not(:empty)) > .tline::after { content: ''; width: 16px; border-top: 2px solid #999; margin-left: -8px; }
+.tbox { font: inherit; font-size: 1rem; font-weight: 600; padding: 5px 12px; border-radius: 6px; border: 1.5px solid #333; background: #fff; cursor: pointer; white-space: nowrap; }
+.tbox:not(.grown):not(.end) { box-shadow: 0 0 0 3px #e3eaf3; }
+.tbox:not(.grown):not(.end):hover { background: #eef2f6; }
+.tbox.grown { cursor: default; }
+.tbox.end { background: #e8f5e9; border-color: #43a047; cursor: default; color: #1b5e20; }
+.tnote { font-size: 0.95rem; font-style: italic; white-space: nowrap; }
+.tnote.good { color: #2e7d32; font-weight: 600; }
+.tnote.bad { color: #b07000; }
+
+.step-body > button, .pencil-reveal > button, .quiz > button { align-self: flex-start; }
